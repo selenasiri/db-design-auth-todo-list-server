@@ -24,13 +24,18 @@ router.post('/register', validInfo, async (req, res) => {
     const bcryptPassword = await bcrypt.hash(password, salt)
 
     let newUser = await pool.query(
-      'INSERT INTO users (user_name, user_email, user_password) VALUES ($1, $2, $3) RETURNING *',
+      `INSERT INTO users (user_name, user_email, user_password) VALUES ($1, $2, $3) 
+          RETURNING user_id,user_name, user_email`,
       [name, email, bcryptPassword]
     )
 
-    const jwtToken = jwtGenerator(newUser.rows[0].user_id)
+    const { user_id, user_name, user_email } = newUser.rows[0]
+    const token = jwtGenerator(user_id)
 
-    return res.json({ jwtToken })
+    return res.json({
+      token,
+      user: { id: user_id, name: user_name, email: user_email },
+    })
   } catch (err) {
     console.error(err.message)
     res.status(500).send('Server error')
@@ -57,8 +62,14 @@ router.post('/login', validInfo, async (req, res) => {
     if (!validPassword) {
       return res.status(401).json('Invalid Credential')
     }
-    const jwtToken = jwtGenerator(user.rows[0].user_id)
-    return res.json({ jwtToken })
+
+    const { user_id, user_name, user_email } = user.rows[0]
+    const token = jwtGenerator(user_id)
+
+    return res.json({
+      token,
+      user: { id: user_id, name: user_name, email: user_email },
+    })
   } catch (err) {
     console.error(err.message)
     res.status(500).send('Server error')
@@ -77,7 +88,7 @@ router.get('/verify', authorize, (req, res) => {
 module.exports = router
 
 /*
-POST http://localhost:5000/authentication/register
+POST http://localhost:5000/auth/register
 input
 {
     "name": "test22",
@@ -87,11 +98,11 @@ input
 out:
 200 OK
 {
-    "jwtToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjo0fSwiaWF0IjoxNjAxNzUyMjQxLCJleHAiOjE2MDE3NTU4NDF9.IBEiIuEtriRNFpXcQS8ly4bB8xPKWiML8PaQc6RloBE"
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjo0fSwiaWF0IjoxNjAxNzUyMjQxLCJleHAiOjE2MDE3NTU4NDF9.IBEiIuEtriRNFpXcQS8ly4bB8xPKWiML8PaQc6RloBE"
 }
 
 ---------------------------------
-POST http://localhost:5000/authentication/login
+POST http://localhost:5000/auth/login
 input
 {
      "email": "test22@gmail.com",
@@ -100,13 +111,13 @@ input
 out:
 200 OK
 {
-    "jwtToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjo0fSwiaWF0IjoxNjAxNzUyMzk2LCJleHAiOjE2MDE3NTU5OTZ9.wRWYE1leDTPC-Kq_DucEU5koxHWIrGRWiq_SB4Vx6vY"
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjo0fSwiaWF0IjoxNjAxNzUyMzk2LCJleHAiOjE2MDE3NTU5OTZ9.wRWYE1leDTPC-Kq_DucEU5koxHWIrGRWiq_SB4Vx6vY"
 }
 
 -------------------
-GET http://localhost:5000/authentication/verify
+GET http://localhost:5000/auth/verify
 header
-jwt_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjo0fSwiaWF0IjoxNjAxNzUyMzk2LCJleHAiOjE2MDE3NTU5OTZ9.wRWYE1leDTPC-Kq_DucEU5koxHWIrGRWiq_SB4Vx6vY
+token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyIjp7ImlkIjo0fSwiaWF0IjoxNjAxNzUyMzk2LCJleHAiOjE2MDE3NTU5OTZ9.wRWYE1leDTPC-Kq_DucEU5koxHWIrGRWiq_SB4Vx6vY
 
 output
 200 PL
